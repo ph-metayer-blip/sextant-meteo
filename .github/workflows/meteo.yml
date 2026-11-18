@@ -1,0 +1,59 @@
+# sextant-meteo — archivage GFS / ECMWF / ICON (vent à 10 m, couloir de course), poids du mélange adaptatif et fichiers
+# courants lus par l'extension Sextant (MET-27b, MET-28). Données météo publiques seulement.
+name: Météo
+on:
+  schedule:
+    - cron: '20 2,8,14,20 * * *'
+  workflow_dispatch:
+    inputs:
+      runs: { description: 'Runs récents essayés par modèle', default: '3' }
+      precis: { description: 'Rattrapage : runs AAAAMMJJHH séparés par des virgules', default: '' }
+permissions: { contents: write }
+concurrency: { group: meteo, cancel-in-progress: false }
+jobs:
+  meteo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with: { path: ~/.cache/sextant_icon, key: icon-grille-r03b07-v1 }
+      - run: pip install --quiet eccodes scipy numpy
+      - name: Runs déjà archivés
+        run: |
+          gh release list --limit 1000 --json tagName --jq '.[].tagName' | grep '^meteo-' | head -30 | while read t; do
+            gh release view "$t" --json assets --jq '.assets[].name'; done > deja.txt || true
+      - name: Téléchargement et découpage
+        env: { ECMWF_S3: "${{ inputs.precis && '1' || '0' }}" }
+        run: python3 -u scripts/archiver.py sortie --deja deja.txt --runs "${{ inputs.runs || '3' }}" ${{ inputs.precis && format('--run {0}', inputs.precis) || '' }}
+      - name: Rangement dans les releases (une par jour de run)
+        run: |
+          for f in sortie/*.npz; do [ -e "$f" ] || continue
+            d=$(basename "$f" | sed -E 's/^[a-z]+_([0-9]{8}).*/\1/')
+            gh release view "meteo-$d" >/dev/null 2>&1 || gh release create "meteo-$d" --title "Météo $d" --notes "Vent à 10 m, couloir de course, runs du $d (UTC)." --latest=false
+            gh release upload "meteo-$d" "$f" --clobber
+          done
+          cat sortie/bilan.txt >> "$GITHUB_STEP_SUMMARY"
+      - name: Poids du mélange (3 derniers runs connus) et fichiers courants
+        run: |
+          mkdir -p recents
+          for j in 0 1 2 3 4 5 6; do d=$(date -u -d "-$j day" +%Y%m%d)
+            gh release download "meteo-$d" -p 'gfs_*.npz' -p 'ecmwf_*.npz' -p 'icon_*.npz' -D recents --skip-existing 2>/dev/null || true; done
+          ls recents | wc -l
+          python3 scripts/poids.py recents poids.json
+          python3 scripts/courant.py recents courant poids.json
+          cp README.md courant/ 2>/dev/null || true
+          cd courant && git init -q -b courant && git add -A
+          git -c user.name='sextant-meteo' -c user.email='actions@github.com' commit -qm "courant $(date -u +%Y-%m-%dT%H:%MZ)"
+          git push -qf "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" courant
+      - name: Conservation — ECMWF sans limite ; GFS et ICON effacés après 90 jours
+        run: |
+          limite=$(date -u -d '-90 day' +%Y%m%d)
+          gh release list --limit 1000 --json tagName --jq '.[].tagName' | grep '^meteo-' | while read t; do
+            [ "${t#meteo-}" -lt "$limite" ] || continue
+            gh release view "$t" --json assets --jq '.assets[].name' | grep -E '^(gfs|icon)_' | while read a; do gh release delete-asset "$t" "$a" --yes; done
+          done || true
+      - name: Échec signalé si un modèle manque
+        run: '! grep -q "ÉCHEC" sortie/bilan.txt'
