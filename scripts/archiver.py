@@ -137,6 +137,7 @@ def main():
         for run in runs:
             nom = f'{mod}_{run:%Y%m%d%H}.npz'
             if nom in deja: bilan.append(f'{nom} déjà archivé'); continue
+            if mod == 'icon' and not o.run and now - run > dt.timedelta(hours=26): bilan.append(f'{nom} hors de portée (le DWD ne garde que 24 h)'); continue
             t0 = time.time()
             try:
                 U, V = MODELES[mod](run)

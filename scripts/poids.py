@@ -32,27 +32,35 @@ z0 = lire('gfs', runs[-1]); MASQUE = masque_mer(z0['lats'][::4], z0['lons'][::4]
 maintenant = dt.datetime.now(dt.timezone.utc).replace(tzinfo=None)
 sortie = dict(vent_du_jeu_jusqua_h=15, reference='heures après le run GFS utilisé par le jeu', calcule=maintenant.isoformat(timespec='minutes') + 'Z', methode=f'poids sur les {N_RUNS} derniers runs dont la vérité est connue',
               dernier_run_gfs=runs[-1].isoformat() + 'Z', tranches=[])
-for de, a, HS in TRANCHES:
+def meilleur(cas, mods):
+    best = None
+    grille = [(i / 10, (10 - i) / 10) for i in range(11)] if len(mods) == 2 else [(i / 10, j / 10, (10 - i - j) / 10) for i in range(11) for j in range(11 - i)]
+    for w in grille:
+        e = np.mean([rms(c['T'] - sum(wi * c[m] for wi, m in zip(w, mods)), MASQUE) for c in cas])
+        if best is None or e < best[0]: best = (e, w)
+    return best
+def cas_tranche(HS, mods):
     cas = []
     for R in reversed(runs):
         for H in HS:
             V = R + dt.timedelta(hours=H); T = champ('gfs', V - dt.timedelta(hours=12), 12)
-            c = {m: champ(m, R, H) for m in MOD}
+            c = {m: champ(m, R, H) for m in mods}
             if T is None or any(x is None for x in c.values()): continue
             c['T'] = T; c['R'] = R; cas.append(c)
         if len({c['R'] for c in cas}) >= N_RUNS: break
-    runs_utilises = sorted({c['R'] for c in cas})
+    return cas
+for de, a, HS in TRANCHES:
+    # d'abord les 3 modèles ; s'il manque l'historique d'ICON (le DWD ne garde que 24 h), GFS et ECMWF seuls, signalé
+    for mods in (MOD, ['gfs', 'ecmwf']):
+        cas = cas_tranche(HS, mods); runs_utilises = sorted({c['R'] for c in cas})
+        if len(runs_utilises) >= N_RUNS: break
     if len(runs_utilises) < N_RUNS:
         sortie['tranches'].append(dict(de=de, a=a, poids=None, raison=f'{len(runs_utilises)} run(s) complet(s) seulement')); continue
-    best = None
-    for i in range(11):
-        for j in range(11 - i):
-            w = (i / 10, j / 10, (10 - i - j) / 10)
-            e = np.mean([rms(c['T'] - sum(wi * c[m] for wi, m in zip(w, MOD)), MASQUE) for c in cas])
-            if best is None or e < best[0]: best = (e, w)
-    err = {m: round(float(np.mean([rms(c['T'] - c[m], MASQUE) for c in cas])), 2) for m in MOD}
-    err['moyenne des 3'] = round(float(np.mean([rms(c['T'] - (c['gfs'] + c['ecmwf'] + c['icon']) / 3, MASQUE) for c in cas])), 2)
-    sortie['tranches'].append(dict(de=de, a=a, poids=dict(zip(MOD, best[1])), erreur_melange=round(best[0], 2), erreurs=err,
-                                   runs=[r.isoformat() + 'Z' for r in runs_utilises], echeances=len(cas)))
+    e, w = meilleur(cas, mods); poids = {m: 0.0 for m in MOD}; poids.update(dict(zip(mods, w)))
+    err = {m: round(float(np.mean([rms(c['T'] - c[m], MASQUE) for c in cas])), 2) for m in mods}
+    err['moyenne'] = round(float(np.mean([rms(c['T'] - sum(c[m] for m in mods) / len(mods), MASQUE) for c in cas])), 2)
+    sortie['tranches'].append(dict(de=de, a=a, poids=poids, modeles=mods, erreur_melange=round(e, 2), erreurs=err,
+                                   runs=[r.isoformat() + 'Z' for r in runs_utilises], echeances=len(cas),
+                                   **({'note': 'ICON sans historique suffisant : GFS et ECMWF seuls'} if len(mods) == 2 else {})))
 json.dump(sortie, open(SORTIE, 'w'), indent=1, ensure_ascii=False)
 print(json.dumps(sortie, indent=1, ensure_ascii=False))
