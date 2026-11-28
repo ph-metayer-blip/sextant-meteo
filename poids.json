@@ -1,0 +1,117 @@
+{
+ "vent_du_jeu_jusqua_h": 15,
+ "reference": "heures après le run GFS utilisé par le jeu",
+ "calcule": "2026-11-28T10:32Z",
+ "methode": "poids sur les 3 derniers runs dont la vérité est connue",
+ "dernier_run_gfs": "2026-11-28T00:00:00Z",
+ "tranches": [
+  {
+   "de": 15,
+   "a": 21,
+   "poids": {
+    "gfs": 0.7,
+    "ecmwf": 0.2,
+    "icon": 0.1
+   },
+   "modeles": [
+    "gfs",
+    "ecmwf",
+    "icon"
+   ],
+   "erreur_melange": 2.17,
+   "erreurs": {
+    "gfs": 2.38,
+    "ecmwf": 3.92,
+    "icon": 3.93,
+    "moyenne": 2.64
+   },
+   "runs": [
+    "2026-11-27T06:00:00Z",
+    "2026-11-27T12:00:00Z",
+    "2026-11-27T18:00:00Z"
+   ],
+   "echeances": 3
+  },
+  {
+   "de": 21,
+   "a": 39,
+   "poids": {
+    "gfs": 0.6,
+    "ecmwf": 0.2,
+    "icon": 0.2
+   },
+   "modeles": [
+    "gfs",
+    "ecmwf",
+    "icon"
+   ],
+   "erreur_melange": 2.92,
+   "erreurs": {
+    "gfs": 3.41,
+    "ecmwf": 4.03,
+    "icon": 4.04,
+    "moyenne": 3.03
+   },
+   "runs": [
+    "2026-11-27T00:00:00Z",
+    "2026-11-27T06:00:00Z",
+    "2026-11-27T12:00:00Z"
+   ],
+   "echeances": 6
+  },
+  {
+   "de": 39,
+   "a": 72,
+   "poids": {
+    "gfs": 0.4,
+    "ecmwf": 0.3,
+    "icon": 0.3
+   },
+   "modeles": [
+    "gfs",
+    "ecmwf",
+    "icon"
+   ],
+   "erreur_melange": 3.71,
+   "erreurs": {
+    "gfs": 4.42,
+    "ecmwf": 4.76,
+    "icon": 4.51,
+    "moyenne": 3.72
+   },
+   "runs": [
+    "2026-11-26T06:00:00Z",
+    "2026-11-26T12:00:00Z",
+    "2026-11-26T18:00:00Z"
+   ],
+   "echeances": 6
+  },
+  {
+   "de": 72,
+   "a": 120,
+   "poids": {
+    "gfs": 0.1,
+    "ecmwf": 0.4,
+    "icon": 0.5
+   },
+   "modeles": [
+    "gfs",
+    "ecmwf",
+    "icon"
+   ],
+   "erreur_melange": 4.43,
+   "erreurs": {
+    "gfs": 7.02,
+    "ecmwf": 5.23,
+    "icon": 5.13,
+    "moyenne": 4.62
+   },
+   "runs": [
+    "2026-11-24T18:00:00Z",
+    "2026-11-25T00:00:00Z",
+    "2026-11-25T06:00:00Z"
+   ],
+   "echeances": 4
+  }
+ ]
+}
